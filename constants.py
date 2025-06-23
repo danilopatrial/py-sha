@@ -26,12 +26,12 @@ def _cbrt_frac(x: int, mod: int) -> int:
     return int((cbrt - math.floor(cbrt)) * mod)
 
 
-sha1:   list = [int(math.sqrt(p) * (2**32)) & 0xFFFFFFFF for p in (2, 3, 5, 10)]
+K1:   list = [int(math.sqrt(p) * (2**32)) & 0xFFFFFFFF for p in (2, 3, 5, 10)]
 
-sha224: list = [_cbrt_frac(i, mod=2**32) for i in _nprimes(64)]
+K224: list = [_cbrt_frac(i, mod=2**32) for i in _nprimes(64)]
 
-sha256: list = sha224
+K256: list = K224
 
-sha384: list = [_cbrt_frac(i, mod=2**64) for i in _nprimes(80)]
+K384: list = [_cbrt_frac(i, mod=2**64) for i in _nprimes(80)]
 
-sha512 = sha512_224 = sha512_256 = sha384
+K512 = K512_224 = K512_256 = K384
