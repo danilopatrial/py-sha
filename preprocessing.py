@@ -7,9 +7,7 @@ from warnings import warn
 
 from constants import *
 
-from functions import (
-    shr, sigma0, sigma1, uSigma0, uSigma1, maj, ch, parity, rotl, rotr
-)
+from functions import shr, majority, choice, parity, rotl, rotr
 
 
 @runtime_checkable
@@ -91,10 +89,10 @@ class sha256(HASH):
 
         for t in range(64):
             S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)
-            ch = (e & f) ^ ((~e) & g)
+            ch = choice(e, f, g)
             temp1 = (h + S1 + ch + K256[t] + W[t]) % 2**32
             S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)
-            maj = (a & b) ^ (a & c) ^ (b & c)
+            maj = majority(a, b, c)
             temp2 = (S0 + maj) % 2**32
             h, g, f, e, d, c, b, a = (
                 g, f, e, (d + temp1) % 2**32, c, b, a, (temp1 + temp2) % 2**32
