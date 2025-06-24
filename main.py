@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing   import Self, Protocol, Any, NewType, Iterator, overload, runtime_checkable, AnyStr
-from warnings import warn
-from types    import MethodType
+from typing    import Self, Protocol, Callable, NewType, Iterator, overload, runtime_checkable, AnyStr
+from types     import MethodType
+from warnings  import warn
+from functools import wraps
 
 import math, decimal
 
@@ -128,17 +129,27 @@ class HASH(object):
         self._counter += len(obj)
 
 
+def instancecheck(func: Callable) -> Callable:
+    '''Decorator to check if the "string" argument on
+    OpenSSL functions is of type Bytes or Bytearray'''
+    @wraps(func)
+    def wrapper(*args, **kwargs) -> Callable:
+        if len(args) == 0: pass
+        elif not isinstance(args[0], (bytes, bytearray)):
+            raise TypeError('Strings must be encoded before hashing')
+        return func(*args, **kwargs)
+    return wrapper
+
+
 '''
 NOTE: The `usedforsecurity` parameter in OpenSSL functions is primarily advisory.
 In most cases, it has no effect. However, for insecure algorithms like MD5 and SHA-1,
 setting `usedforsecurity=True` may raise a warning in security-sensitive environments.
 '''
 
+@instancecheck
 def openssl_sha1(string: ReadableBuffer = b'', *, usedforsecurity: bool = True) -> HASH:
     '''Returns a sha1 hash object; optionally initialized with a string'''
-
-    if not isinstance(string, bytes):
-        raise TypeError('Strings must be encoded before hashing')
 
     if usedforsecurity:
         warn('SHA-1 is not considered secure for cryptographic purposes.', category=UserWarning)
@@ -196,5 +207,10 @@ if __name__ == '__main__':
             for chunk in iter(lambda: file.read(8196), b''):  _hash.update(chunk)
         return _hash.hexdigest()
 
+    try: # check istance check decorator
+        openssl_sha1('Hello')
+        raise AssertionError # This should not happen
+    except TypeError:
+        pass
 
     assert _get_sum(hashlib.sha1()) == _get_sum(openssl_sha1())
