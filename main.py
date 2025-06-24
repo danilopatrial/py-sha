@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing   import Self, Protocol, Any, NewType, Iterator, overload, runtime_checkable, AnyStr
 from warnings import warn
+from types    import MethodType
 
 import math, decimal
 
@@ -45,21 +46,14 @@ def _cbrt_frac(x: int, mod: int) -> int:
 
 class HASH(object):
 
-    '''
-    All not implemented methods must be implemented by the subclass
-    '''
-
-    def __init__(self, ds: int, bs: int, name: str, _h: list) -> None:
+    def __init__(self, ds: int, bs: int, name: str, ihv: list) -> None:
         self._buffer:  bytearray = bytearray()
         self._counter: int = 0
 
         self.digest_size: int  = ds
         self.block_size:  int  = bs
         self.name:        str  = name
-        self._H:          list = _h # Initial Hash Values
-
-    @property
-    def __class__(self) -> HASH: return HASH
+        self._H:          list = ihv # Initial Hash Values
 
     # Operations on words
     def _ROTR(self, x: int, n: int) -> int: return (x >> n) | (x << (self.digest_size - n))
@@ -134,16 +128,23 @@ class HASH(object):
         self._counter += len(obj)
 
 
-class SHA1(HASH):
-    def __init__(self) -> None:
-        super().__init__(
-            ds=32, bs=512, name='sha1',
-            _h=[
-                0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0
-            ])
+'''
+NOTE: The `usedforsecurity` parameter in OpenSSL functions is primarily advisory.
+In most cases, it has no effect. However, for insecure algorithms like MD5 and SHA-1,
+setting `usedforsecurity=True` may raise a warning in security-sensitive environments.
+'''
 
-    def digest(self) -> bytes:
-        message: bytearray = self._pad(self._buffer[:], self._counter * 8, self.block_size)
+def openssl_sha1(string: ReadableBuffer = b'', *, usedforsecurity: bool = True) -> HASH:
+    '''Returns a sha1 hash object; optionally initialized with a string'''
+
+    if not isinstance(string, bytes):
+        raise TypeError('Strings must be encoded before hashing')
+
+    if usedforsecurity:
+        warn('SHA-1 is not considered secure for cryptographic purposes.', category=UserWarning)
+
+    def __digest(cls: HASH) -> bytes:
+        message: bytearray = cls._pad(cls._buffer[:], cls._counter * 8, cls.block_size)
         blocks: list[bytearray] = [message[i:i + 64] for i in range(0, len(message), 64)]
 
         for block in blocks:
@@ -154,42 +155,46 @@ class SHA1(HASH):
                     W.append(int.from_bytes(block[t * 4:(t + 1) * 4], 'big'))
                 else:
                     val = W[t - 3] ^ W[t - 8] ^ W[t - 14] ^ W[t - 16]
-                    W.append(self._ROTL(val, 1) & 0xFFFFFFFF)
+                    W.append(cls._ROTL(val, 1) & 0xFFFFFFFF)
 
-            a, b, c, d, e = self._H
+            a, b, c, d, e = cls._H
 
             for t in range(80):
                 if t <= 19:
-                    f, k = self._ch(b, c, d), 0x5A827999
+                    f, k = cls._ch(b, c, d), 0x5A827999
                 elif t <= 39:
-                    f, k = self._parity(b, c, d), 0x6ED9EBA1
+                    f, k = cls._parity(b, c, d), 0x6ED9EBA1
                 elif t <= 59:
-                    f, k = self._maj(b, c, d), 0x8F1BBCDC
+                    f, k = cls._maj(b, c, d), 0x8F1BBCDC
                 else:
-                    f, k = self._parity(b, c, d), 0xCA62C1D6
+                    f, k = cls._parity(b, c, d), 0xCA62C1D6
 
-                temp = (self._ROTL(a, 5) + f + e + k + W[t]) & 0xFFFFFFFF
-                a, b, c, d, e = temp, a, self._ROTL(b, 30), c, d
+                temp = (cls._ROTL(a, 5) + f + e + k + W[t]) & 0xFFFFFFFF
+                a, b, c, d, e = temp, a, cls._ROTL(b, 30), c, d
 
-            self._H = [(x + y) & 0xFFFFFFFF for x, y in zip(self._H, [a, b, c, d, e])]
+            cls._H = [(x + y) & 0xFFFFFFFF for x, y in zip(cls._H, [a, b, c, d, e])]
 
-        return b''.join(h.to_bytes(4, 'big') for h in self._H)
+        return b''.join(h.to_bytes(4, 'big') for h in cls._H)
 
+    # Initial Hash Values
+    ihv: list = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0]
 
+    hash_obj: HASH = HASH(ds=32, bs=512, name='sha1', ihv=ihv)
+    hash_obj.digest = MethodType(__digest, hash_obj)
 
-'''
-NOTE: The `usedforsecurity` parameter in OpenSSL functions is primarily advisory.
-In most cases, it has no effect. However, for insecure algorithms like MD5 and SHA-1,
-setting `usedforsecurity=True` may raise a warning in security-sensitive environments.
-'''
+    if string: hash_obj.update(string)
 
-def openssl_sha1(string: ReadableBuffer = b'', *, usedforsecurity: bool = True) -> HASH:
-
-    if usedforsecurity:
-        warn('SHA-1 is not considered secure for cryptographic purposes.', category=UserWarning)
-
-    obj: SHA1 = SHA1()
-    if string: obj.update(string)
-    return obj
+    return hash_obj
 
 
+
+if __name__ == '__main__':
+    import hashlib
+
+    def _get_sum(_hash) -> str:
+        with open('sha/nist.fips.180-4.pdf', 'rb') as file:
+            for chunk in iter(lambda: file.read(8196), b''):  _hash.update(chunk)
+        return _hash.hexdigest()
+
+
+    assert _get_sum(hashlib.sha1()) == _get_sum(openssl_sha1())
