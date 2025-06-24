@@ -129,27 +129,17 @@ class HASH(object):
         self._counter += len(obj)
 
 
-def instancecheck(func: Callable) -> Callable:
-    '''Decorator to check if the "string" argument on
-    OpenSSL functions is of type Bytes or Bytearray'''
-    @wraps(func)
-    def wrapper(*args, **kwargs) -> Callable:
-        if len(args) == 0: pass
-        elif not isinstance(args[0], (bytes, bytearray)):
-            raise TypeError('Strings must be encoded before hashing')
-        return func(*args, **kwargs)
-    return wrapper
-
-
 '''
 NOTE: The `usedforsecurity` parameter in OpenSSL functions is primarily advisory.
 In most cases, it has no effect. However, for insecure algorithms like MD5 and SHA-1,
 setting `usedforsecurity=True` may raise a warning in security-sensitive environments.
 '''
 
-@instancecheck
 def openssl_sha1(string: ReadableBuffer = b'', *, usedforsecurity: bool = True) -> HASH:
     '''Returns a sha1 hash object; optionally initialized with a string'''
+
+    if not isinstance(string, (bytes, bytearray)):
+        raise TypeError('Strings must be encoded before hashing')
 
     if usedforsecurity:
         warn('SHA-1 is not considered secure for cryptographic purposes.', category=UserWarning)
@@ -198,14 +188,52 @@ def openssl_sha1(string: ReadableBuffer = b'', *, usedforsecurity: bool = True) 
     return hash_obj
 
 
+def openssl_sha224(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH:
+    '''Returns a sha224 hash object; optionally initialized with a string'''
+
+    if not isinstance(string, (bytes, bytearray)):
+        raise TypeError('Strings must be encoded before hashing')
+
+    def __digest(cls: HASH) -> bytes: ...
+
+    # Initial Hash Values
+    ihv: list = [
+        0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939,
+        0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4
+        ]
+
+    hash_obj: HASH = HASH(ds=32, bs=512, name='sha224', ihv=ihv)
+    hash_obj.digest = MethodType(__digest, hash_obj)
+
+    if string: hash_obj.update(string)
+
+    return hash_obj
+
+
+def openssl_sha256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH:
+    '''Returns a sha256 hash object; optionally initialized with a string'''
+
+    if not isinstance(string, (bytes, bytearray)):
+        raise TypeError('Strings must be encoded before hashing')
+
+    def __digest(cls: HASH) -> bytes: ...
+
+    # Initial Hash Values
+    ihv: list = [
+        0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939,
+        0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4
+        ]
+
+    hash_obj: HASH = HASH(ds=32, bs=512, name='sha256', ihv=ihv)
+    hash_obj.digest = MethodType(__digest, hash_obj)
+
+    if string: hash_obj.update(string)
+
+    return hash_obj
+
+
 
 if __name__ == '__main__':
-    import hashlib
-
-    def _get_sum(_hash) -> str:
-        with open('sha/nist.fips.180-4.pdf', 'rb') as file:
-            for chunk in iter(lambda: file.read(8196), b''):  _hash.update(chunk)
-        return _hash.hexdigest()
 
     try: # check istance check decorator
         openssl_sha1('Hello')
@@ -213,4 +241,24 @@ if __name__ == '__main__':
     except TypeError:
         pass
 
-    assert _get_sum(hashlib.sha1()) == _get_sum(openssl_sha1())
+    import hashlib
+
+    def _get_sum(_hash) -> str:
+        with open('sha/nist.fips.180-4.pdf', 'rb') as file:
+            for chunk in iter(lambda: file.read(8196), b''):  _hash.update(chunk)
+        return _hash.hexdigest()
+
+    def _compare_digest(_hash1, _hash2) -> str:
+        _hash1_digest: str = _get_sum(_hash1)
+        _hash2_digest: str = _get_sum(_hash2)
+
+        if _hash1_digest != _hash2_digest:
+            raise HashMismatchError(
+                f'{_hash1.name} | {_hash1_digest} != {_hash2_digest}'
+            )
+
+        return f'[ OK ] {_hash1.name} | {_hash1_digest} == {_hash2_digest}'
+
+    hashlib.sha1('hello')
+    print(_compare_digest(openssl_sha1(), hashlib.sha1()))
+    print(_compare_digest(openssl_sha224(), hashlib.sha224()))
