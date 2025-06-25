@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing    import Self, Protocol, Callable, NewType, Iterator, overload, runtime_checkable, AnyStr
+from typing    import Self, Protocol, Iterator, overload, runtime_checkable, AnyStr
 from types     import MethodType
 from warnings  import warn
-from functools import wraps
 
 import math, decimal
 
@@ -67,15 +66,6 @@ class HASH(object):
     def _ch(x: int, y: int, z: int) -> int: return (x & y) | (~x & z)
     @staticmethod
     def _maj(x: int, y: int, z: int) -> int: return (x & y) | (x & z) | (y & z)
-
-    @staticmethod
-    def _sigma0(x: int) -> int: raise NotImplementedError
-    @staticmethod
-    def _sigma1(x: int) -> int: raise NotImplementedError
-    @staticmethod
-    def _uSigma0(x: int) -> int: raise NotImplementedError
-    @staticmethod
-    def _uSigma1(x: int) -> int: raise NotImplementedError
 
     @property
     def _mod(self) -> int:
@@ -514,7 +504,7 @@ if __name__ == '__main__':
     import hashlib
 
     def _get_sum(_hash) -> str:
-        with open('sha/nist.fips.180-4.pdf', 'rb') as file:
+        with open('nist.fips.180-4.pdf', 'rb') as file:
             for chunk in iter(lambda: file.read(8196), b''):  _hash.update(chunk)
         return _hash.hexdigest()
 
