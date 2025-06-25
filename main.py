@@ -77,6 +77,9 @@ class HASH(object):
     @staticmethod
     def _uSigma1(x: int) -> int: raise NotImplementedError
 
+    @property
+    def _mod(self) -> int:
+        return 0xFFFFFFFF if self.digest_size == 32 else 0xFFFFFFFFFFFFFFFF
 
     @property
     def K(self) -> list:
@@ -84,7 +87,7 @@ class HASH(object):
 
         if not hasattr(self, '_K'):
             k_map: dict = {
-                'sha1':   [int(math.sqrt(p) * (2**32)) & 0xFFFFFFFF for p in (2, 3, 5, 10)],
+                'sha1':   [int(math.sqrt(p) * (2**32)) & self._mod for p in (2, 3, 5, 10)],
                 'sha224': [_cbrt_frac(i, mod=2**32) for i in _nprimes(64)],
                 'sha384': [_cbrt_frac(i, mod=2**64) for i in _nprimes(80)]
             }
@@ -156,7 +159,7 @@ def openssl_sha1(string: ReadableBuffer = b'', *, usedforsecurity: bool = True) 
                     W.append(int.from_bytes(block[t * 4:(t + 1) * 4], 'big'))
                 else:
                     val = W[t - 3] ^ W[t - 8] ^ W[t - 14] ^ W[t - 16]
-                    W.append(cls._ROTL(val, 1) & 0xFFFFFFFF)
+                    W.append(cls._ROTL(val, 1) & cls._mod)
 
             a, b, c, d, e = cls._H
 
@@ -170,10 +173,10 @@ def openssl_sha1(string: ReadableBuffer = b'', *, usedforsecurity: bool = True) 
                 else:
                     f, k = cls._parity(b, c, d), 0xCA62C1D6
 
-                temp = (cls._ROTL(a, 5) + f + e + k + W[t]) & 0xFFFFFFFF
+                temp = (cls._ROTL(a, 5) + f + e + k + W[t]) & cls._mod
                 a, b, c, d, e = temp, a, cls._ROTL(b, 30), c, d
 
-            cls._H = [(x + y) & 0xFFFFFFFF for x, y in zip(cls._H, [a, b, c, d, e])]
+            cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e])]
 
         return b''.join(h.to_bytes(4, 'big') for h in cls._H)
 
@@ -207,22 +210,22 @@ def openssl_sha224(string: ReadableBuffer = b"", *, usedforsecurity: bool = True
                 else:
                     s1 = cls._ROTR(W[t-2], 17) ^ cls._ROTR(W[t-2], 19) ^ W[t-2] >> 10
                     s0 = cls._ROTR(W[t-15], 7) ^ cls._ROTR(W[t-15], 18) ^ W[t-15] >> 3
-                    W.append((s1 + W[t-7] + s0 + W[t-16]) & 0xFFFFFFFF)
+                    W.append((s1 + W[t-7] + s0 + W[t-16]) & cls._mod)
 
             a, b, c, d, e, f, g, h = cls._H
 
             for t in range(64):
                 s1 = cls._ROTR(e, 6) ^ cls._ROTR(e, 11) ^ cls._ROTR(e, 25)
                 s0 = cls._ROTR(a, 2) ^ cls._ROTR(a, 13) ^ cls._ROTR(a, 22)
-                t1 = (h + s1 + cls._ch(e, f, g) + cls.K[t] + W[t]) & 0xFFFFFFFF
-                t2 = (s0 + cls._maj(a, b, c)) & 0xFFFFFFFF
+                t1 = (h + s1 + cls._ch(e, f, g) + cls.K[t] + W[t]) & cls._mod
+                t2 = (s0 + cls._maj(a, b, c)) & cls._mod
 
                 h, g, f = g, f, e
-                e = (d + t1) & 0xFFFFFFFF
+                e = (d + t1) & cls._mod
                 d, c, b = c, b, a
-                a = (t1 + t2) & 0xFFFFFFFF
+                a = (t1 + t2) & cls._mod
 
-            cls._H = [(x + y) & 0xFFFFFFFF for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
+            cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
 
         cls._H.pop()
         return b''.join(h.to_bytes(4, 'big') for h in cls._H)
@@ -260,22 +263,22 @@ def openssl_sha256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True
                 else:
                     s1 = cls._ROTR(W[t-2], 17) ^ cls._ROTR(W[t-2], 19) ^ W[t-2] >> 10
                     s0 = cls._ROTR(W[t-15], 7) ^ cls._ROTR(W[t-15], 18) ^ W[t-15] >> 3
-                    W.append((s1 + W[t-7] + s0 + W[t-16]) & 0xFFFFFFFF)
+                    W.append((s1 + W[t-7] + s0 + W[t-16]) & cls._mod)
 
             a, b, c, d, e, f, g, h = cls._H
 
             for t in range(64):
                 s1 = cls._ROTR(e, 6) ^ cls._ROTR(e, 11) ^ cls._ROTR(e, 25)
                 s0 = cls._ROTR(a, 2) ^ cls._ROTR(a, 13) ^ cls._ROTR(a, 22)
-                t1 = (h + s1 + cls._ch(e, f, g) + cls.K[t] + W[t]) & 0xFFFFFFFF
-                t2 = (s0 + cls._maj(a, b, c)) & 0xFFFFFFFF
+                t1 = (h + s1 + cls._ch(e, f, g) + cls.K[t] + W[t]) & cls._mod
+                t2 = (s0 + cls._maj(a, b, c)) & cls._mod
 
                 h, g, f = g, f, e
-                e = (d + t1) & 0xFFFFFFFF
+                e = (d + t1) & cls._mod
                 d, c, b = c, b, a
-                a = (t1 + t2) & 0xFFFFFFFF
+                a = (t1 + t2) & cls._mod
 
-            cls._H = [(x + y) & 0xFFFFFFFF for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
+            cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
 
         return b''.join(h.to_bytes(4, 'big') for h in cls._H)
 
@@ -313,22 +316,22 @@ def openssl_sha512(string: ReadableBuffer = b"", *, usedforsecurity: bool = True
                     s1 = cls._ROTR(W[t-2], 19) ^ cls._ROTR(W[t-2], 61) ^ W[t-2] >> 6
                     s0 = cls._ROTR(W[t-15], 1) ^ cls._ROTR(W[t-15], 8) ^ W[t-15] >> 7
 
-                    W.append((s1 + W[t-7] + s0 + W[t-16]) & 0xFFFFFFFFFFFFFFFF)
+                    W.append((s1 + W[t-7] + s0 + W[t-16]) & cls._mod)
 
             a, b, c, d, e, f, g, h = cls._H
 
             for t in range(80):
                 s1 = cls._ROTR(e, 14) ^ cls._ROTR(e, 18) ^ cls._ROTR(e, 41)
                 s0 = cls._ROTR(a, 28) ^ cls._ROTR(a, 34) ^ cls._ROTR(a, 39)
-                t1 = (h + s1 + cls._ch(e, f, g) + cls.K[t] + W[t]) & 0xFFFFFFFFFFFFFFFF
-                t2 = (s0 + cls._maj(a, b, c)) & 0xFFFFFFFFFFFFFFFF
+                t1 = (h + s1 + cls._ch(e, f, g) + cls.K[t] + W[t]) & cls._mod
+                t2 = (s0 + cls._maj(a, b, c)) & cls._mod
 
                 h, g, f = g, f, e
-                e = (d + t1) & 0xFFFFFFFFFFFFFFFF
+                e = (d + t1) & cls._mod
                 d, c, b = c, b, a
-                a = (t1 + t2) & 0xFFFFFFFFFFFFFFFF
+                a = (t1 + t2) & cls._mod
 
-            cls._H = [(x + y) & 0xFFFFFFFFFFFFFFFF for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
+            cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
 
         return b''.join(h.to_bytes(8, 'big') for h in cls._H)
 
