@@ -453,6 +453,59 @@ def sha512_224(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) ->
     return hash_obj
 
 
+def sha512_256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH:
+    '''Returns a sha512-256 hash object; optionally initialized with a string'''
+
+    if not isinstance(string, (bytes, bytearray)):
+        raise TypeError('Strings must be encoded before hashing')
+
+    def __digest(cls: HASH) -> bytes:
+        message: bytearray = cls._pad(cls._buffer[:], cls._counter * 8, cls.block_size)
+        blocks: list[bytearray] = [message[i:i + 128] for i in range(0, len(message), 128)]
+
+        for block in blocks:
+            W: list = []
+
+            for t in range(80):
+                if t <= 15:
+                    W.append(int.from_bytes(block[t*8:(t*8)+8], 'big'))
+                else:
+                    s1 = cls._ROTR(W[t-2], 19) ^ cls._ROTR(W[t-2], 61) ^ W[t-2] >> 6
+                    s0 = cls._ROTR(W[t-15], 1) ^ cls._ROTR(W[t-15], 8) ^ W[t-15] >> 7
+
+                    W.append((s1 + W[t-7] + s0 + W[t-16]) & cls._mod)
+
+            a, b, c, d, e, f, g, h = cls._H
+
+            for t in range(80):
+                s1 = cls._ROTR(e, 14) ^ cls._ROTR(e, 18) ^ cls._ROTR(e, 41)
+                s0 = cls._ROTR(a, 28) ^ cls._ROTR(a, 34) ^ cls._ROTR(a, 39)
+                t1 = (h + s1 + cls._ch(e, f, g) + cls.K[t] + W[t]) & cls._mod
+                t2 = (s0 + cls._maj(a, b, c)) & cls._mod
+
+                h, g, f = g, f, e
+                e = (d + t1) & cls._mod
+                d, c, b = c, b, a
+                a = (t1 + t2) & cls._mod
+
+            cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
+
+        return b''.join(h.to_bytes(8, 'big') for h in cls._H)[:32]
+
+    # Initial Hash Values
+    ihv: list = [
+        0x22312194FC2BF72C, 0x9F555FA3C84C64C2, 0x2393B86B6F53B151, 0x963877195940EABD,
+        0x96283EE2A88EFFE3, 0xBE5E1E2553863992, 0x2B0199FC2C85B8AA, 0x0EB72DDC81C52CA2,
+    ]
+
+    hash_obj: HASH = HASH(ds=64, bs=1024, name='sha512-256', ihv=ihv)
+    hash_obj.digest = MethodType(__digest, hash_obj)
+
+    if string: hash_obj.update(string)
+
+    return hash_obj
+
+
 if __name__ == '__main__':
 
     import hashlib
@@ -468,3 +521,5 @@ if __name__ == '__main__':
     assert _get_sum(sha512()) == _get_sum(hashlib.sha512())
     assert _get_sum(sha384()) == _get_sum(hashlib.sha384())
     assert _get_sum(sha512_224()) == _get_sum(hashlib.new('sha512-224'))
+    assert _get_sum(sha512_256()) == _get_sum(hashlib.new('sha512-256'))
+    
