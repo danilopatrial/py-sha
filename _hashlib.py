@@ -506,6 +506,9 @@ def sha512_256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) ->
     return hash_obj
 
 
+__all__: list = [var for var in globals().keys() if not var.startswith('_')]
+
+
 if __name__ == '__main__':
 
     import hashlib
@@ -515,7 +518,7 @@ if __name__ == '__main__':
             for chunk in iter(lambda: file.read(8196), b''):  _hash.update(chunk)
         return _hash.hexdigest()
 
-    assert _get_sum(sha1())   == _get_sum(hashlib.sha1())
+    assert _get_sum(sha1()) == _get_sum(hashlib.sha1())
     assert _get_sum(sha256()) == _get_sum(hashlib.sha256())
     assert _get_sum(sha224()) == _get_sum(hashlib.sha224())
     assert _get_sum(sha512()) == _get_sum(hashlib.sha512())
