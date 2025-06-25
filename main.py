@@ -46,18 +46,19 @@ def _cbrt_frac(x: int, mod: int) -> int:
 
 class HASH(object):
 
-    def __init__(self, ds: int, bs: int, name: str, ihv: list) -> None:
+    def __init__(self, ds: int, bs: int, w: int, name: str, ihv: list) -> None:
         self._buffer:  bytearray = bytearray()
         self._counter: int = 0
 
-        self.digest_size: int  = ds
-        self.block_size:  int  = bs
-        self.name:        str  = name
-        self._H:          list = ihv # Initial Hash Values
+        self.digest_size: int  = ds    # Digest bytes-length
+        self.block_size:  int  = bs    # Block size
+        self.name:        str  = name  # Algorithm name
+        self._w:          int  = w     # word bit-length
+        self._H:          list = ihv   # Initial Hash Values
 
     # Operations on words
-    def _ROTR(self, x: int, n: int) -> int: return (x >> n) | (x << (self.digest_size - n))
-    def _ROTL(self, x: int, n: int) -> int: return (x << n) | (x >> (self.digest_size - n))
+    def _ROTR(self, x: int, n: int) -> int: return (x >> n) | (x << (self._w - n))
+    def _ROTL(self, x: int, n: int) -> int: return (x << n) | (x >> (self._w - n))
 
     # Base functions
     @staticmethod
@@ -69,7 +70,7 @@ class HASH(object):
 
     @property
     def _mod(self) -> int:
-        return 0xFFFFFFFF if self.digest_size == 32 else 0xFFFFFFFFFFFFFFFF
+        return 0xFFFFFFFF if self._w == 32 else 0xFFFFFFFFFFFFFFFF
 
     @property
     def K(self) -> list:
@@ -168,12 +169,12 @@ def sha1(string: ReadableBuffer = b'', *, usedforsecurity: bool = True) -> HASH:
 
             cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e])]
 
-        return b''.join(h.to_bytes(4, 'big') for h in cls._H)
+        return b''.join(h.to_bytes(4, 'big') for h in cls._H)[:cls.digest_size]
 
     # Initial Hash Values
     ihv: list = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0]
 
-    hash_obj: HASH = HASH(ds=32, bs=512, name='sha1', ihv=ihv)
+    hash_obj: HASH = HASH(ds=20, bs=512, w=32, name='sha1', ihv=ihv)
     hash_obj.digest = MethodType(__digest, hash_obj)
 
     if string: hash_obj.update(string)
@@ -217,7 +218,7 @@ def sha224(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HAS
 
             cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
 
-        return b''.join(h.to_bytes(4, 'big') for h in cls._H[:-1])
+        return b''.join(h.to_bytes(4, 'big') for h in cls._H)[:cls.digest_size]
 
     # Initial Hash Values
     ihv: list = [
@@ -225,7 +226,7 @@ def sha224(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HAS
         0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4
         ]
 
-    hash_obj: HASH = HASH(ds=32, bs=512, name='sha224', ihv=ihv)
+    hash_obj: HASH = HASH(ds=28, bs=512, w=32, name='sha224', ihv=ihv)
     hash_obj.digest = MethodType(__digest, hash_obj)
 
     if string: hash_obj.update(string)
@@ -269,7 +270,7 @@ def sha256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HAS
 
             cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
 
-        return b''.join(h.to_bytes(4, 'big') for h in cls._H)
+        return b''.join(h.to_bytes(4, 'big') for h in cls._H)[:cls.digest_size]
 
     # Initial Hash Values
     ihv: list = [
@@ -277,7 +278,7 @@ def sha256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HAS
         0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
         ]
 
-    hash_obj: HASH = HASH(ds=32, bs=512, name='sha256', ihv=ihv)
+    hash_obj: HASH = HASH(ds=32, bs=512, w=32, name='sha256', ihv=ihv)
     hash_obj.digest = MethodType(__digest, hash_obj)
 
     if string: hash_obj.update(string)
@@ -322,14 +323,14 @@ def sha384(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HAS
 
             cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
 
-        return b''.join(h.to_bytes(8, 'big') for h in cls._H[:-2])
+        return b''.join(h.to_bytes(8, 'big') for h in cls._H)[:cls.digest_size]
 
     ihv: list = [
         0xcbbb9d5dc1059ed8, 0x629a292a367cd507, 0x9159015a3070dd17, 0x152fecd8f70e5939,
         0x67332667ffc00b31, 0x8eb44a8768581511, 0xdb0c2e0d64f98fa7, 0x47b5481dbefa4fa4,
     ]
 
-    hash_obj: HASH = HASH(ds=64, bs=1024, name='sha384', ihv=ihv)
+    hash_obj: HASH = HASH(ds=48, bs=1024, w=64, name='sha384', ihv=ihv)
     hash_obj.digest = MethodType(__digest, hash_obj)
 
     if string: hash_obj.update(string)
@@ -374,7 +375,7 @@ def sha512(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HAS
 
             cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
 
-        return b''.join(h.to_bytes(8, 'big') for h in cls._H)
+        return b''.join(h.to_bytes(8, 'big') for h in cls._H)[:cls.digest_size]
 
     # Initial Hash Values
     ihv: list = [
@@ -382,7 +383,7 @@ def sha512(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HAS
         0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179,
     ]
 
-    hash_obj: HASH = HASH(ds=64, bs=1024, name='sha512', ihv=ihv)
+    hash_obj: HASH = HASH(ds=64, bs=1024, w=64, name='sha512', ihv=ihv)
     hash_obj.digest = MethodType(__digest, hash_obj)
 
     if string: hash_obj.update(string)
@@ -427,7 +428,7 @@ def sha512_224(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) ->
 
             cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
 
-        return b''.join(h.to_bytes(8, 'big') for h in cls._H)[:28]
+        return b''.join(h.to_bytes(8, 'big') for h in cls._H)[:cls.digest_size]
 
     # Initial Hash Values
     ihv: list = [
@@ -435,7 +436,7 @@ def sha512_224(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) ->
         0x0F6D2B697BD44DA8, 0x77E36F7304C48942, 0x3F9D85A86A1D36C8, 0x1112E6AD91D692A1,
     ]
 
-    hash_obj: HASH = HASH(ds=64, bs=1024, name='sha512-224', ihv=ihv)
+    hash_obj: HASH = HASH(ds=28, bs=1024, w=64, name='sha512-224', ihv=ihv)
     hash_obj.digest = MethodType(__digest, hash_obj)
 
     if string: hash_obj.update(string)
@@ -480,7 +481,7 @@ def sha512_256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) ->
 
             cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
 
-        return b''.join(h.to_bytes(8, 'big') for h in cls._H)[:32]
+        return b''.join(h.to_bytes(8, 'big') for h in cls._H)[:cls.digest_size]
 
     # Initial Hash Values
     ihv: list = [
@@ -488,7 +489,7 @@ def sha512_256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) ->
         0x96283EE2A88EFFE3, 0xBE5E1E2553863992, 0x2B0199FC2C85B8AA, 0x0EB72DDC81C52CA2,
     ]
 
-    hash_obj: HASH = HASH(ds=64, bs=1024, name='sha512-256', ihv=ihv)
+    hash_obj: HASH = HASH(ds=32, bs=1024, w=64, name='sha512-256', ihv=ihv)
     hash_obj.digest = MethodType(__digest, hash_obj)
 
     if string: hash_obj.update(string)
