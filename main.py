@@ -227,8 +227,7 @@ def openssl_sha224(string: ReadableBuffer = b"", *, usedforsecurity: bool = True
 
             cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
 
-        cls._H.pop()
-        return b''.join(h.to_bytes(4, 'big') for h in cls._H)
+        return b''.join(h.to_bytes(4, 'big') for h in cls._H[:-1])
 
     # Initial Hash Values
     ihv: list = [
@@ -289,6 +288,58 @@ def openssl_sha256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True
         ]
 
     hash_obj: HASH = HASH(ds=32, bs=512, name='sha256', ihv=ihv)
+    hash_obj.digest = MethodType(__digest, hash_obj)
+
+    if string: hash_obj.update(string)
+
+    return hash_obj
+
+
+def openssl_sha384(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH:
+    '''Returns a sha384 hash object; optionally initialized with a string'''
+
+    if not isinstance(string, (bytes, bytearray)):
+        raise TypeError('Strings must be encoded before hashing')
+
+    def __digest(cls: HASH) -> bytes:
+        message: bytearray = cls._pad(cls._buffer[:], cls._counter * 8, cls.block_size)
+        blocks: list[bytearray] = [message[i:i + 128] for i in range(0, len(message), 128)]
+
+        for block in blocks:
+            W: list = []
+
+            for t in range(80):
+                if t <= 15:
+                    W.append(int.from_bytes(block[t*8:(t*8)+8], 'big'))
+                else:
+                    s1 = cls._ROTR(W[t-2], 19) ^ cls._ROTR(W[t-2], 61) ^ W[t-2] >> 6
+                    s0 = cls._ROTR(W[t-15], 1) ^ cls._ROTR(W[t-15], 8) ^ W[t-15] >> 7
+
+                    W.append((s1 + W[t-7] + s0 + W[t-16]) & cls._mod)
+
+            a, b, c, d, e, f, g, h = cls._H
+
+            for t in range(80):
+                s1 = cls._ROTR(e, 14) ^ cls._ROTR(e, 18) ^ cls._ROTR(e, 41)
+                s0 = cls._ROTR(a, 28) ^ cls._ROTR(a, 34) ^ cls._ROTR(a, 39)
+                t1 = (h + s1 + cls._ch(e, f, g) + cls.K[t] + W[t]) & cls._mod
+                t2 = (s0 + cls._maj(a, b, c)) & cls._mod
+
+                h, g, f = g, f, e
+                e = (d + t1) & cls._mod
+                d, c, b = c, b, a
+                a = (t1 + t2) & cls._mod
+
+            cls._H = [(x + y) & cls._mod for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
+
+        return b''.join(h.to_bytes(8, 'big') for h in cls._H[:-2])
+
+    ihv: list = [
+        0xcbbb9d5dc1059ed8, 0x629a292a367cd507, 0x9159015a3070dd17, 0x152fecd8f70e5939,
+        0x67332667ffc00b31, 0x8eb44a8768581511, 0xdb0c2e0d64f98fa7, 0x47b5481dbefa4fa4,
+    ]
+
+    hash_obj: HASH = HASH(ds=64, bs=1024, name='sha384', ihv=ihv)
     hash_obj.digest = MethodType(__digest, hash_obj)
 
     if string: hash_obj.update(string)
@@ -363,3 +414,4 @@ if __name__ == '__main__':
     assert _get_sum(openssl_sha256()) == _get_sum(hashlib.sha256())
     assert _get_sum(openssl_sha224()) == _get_sum(hashlib.sha224())
     assert _get_sum(openssl_sha512()) == _get_sum(hashlib.sha512())
+    assert _get_sum(openssl_sha384()) == _get_sum(hashlib.sha384())
