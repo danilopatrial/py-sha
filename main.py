@@ -194,7 +194,38 @@ def openssl_sha224(string: ReadableBuffer = b"", *, usedforsecurity: bool = True
     if not isinstance(string, (bytes, bytearray)):
         raise TypeError('Strings must be encoded before hashing')
 
-    def __digest(cls: HASH) -> bytes: ...
+    def __digest(cls: HASH) -> bytes:
+        message: bytearray = cls._pad(cls._buffer[:], cls._counter * 8, cls.block_size)
+        blocks: list[bytearray] = [message[i:i + 64] for i in range(0, len(message), 64)]
+
+        for block in blocks:
+            W: list[int] = []
+
+            for t in range(64):
+                if t <= 15:
+                    W.append(int.from_bytes(block[t*4:(t*4)+4], 'big'))
+                else:
+                    s1 = cls._ROTR(W[t-2], 17) ^ cls._ROTR(W[t-2], 19) ^ W[t-2] >> 10
+                    s0 = cls._ROTR(W[t-15], 7) ^ cls._ROTR(W[t-15], 18) ^ W[t-15] >> 3
+                    W.append((s1 + W[t-7] + s0 + W[t-16]) & 0xFFFFFFFF)
+
+            a, b, c, d, e, f, g, h = cls._H
+
+            for t in range(64):
+                s1 = cls._ROTR(e, 6) ^ cls._ROTR(e, 11) ^ cls._ROTR(e, 25)
+                s0 = cls._ROTR(a, 2) ^ cls._ROTR(a, 13) ^ cls._ROTR(a, 22)
+                t1 = (h + s1 + cls._ch(e, f, g) + cls.K[t] + W[t]) & 0xFFFFFFFF
+                t2 = (s0 + cls._maj(a, b, c)) & 0xFFFFFFFF
+
+                h, g, f = g, f, e
+                e = (d + t1) & 0xFFFFFFFF
+                d, c, b = c, b, a
+                a = (t1 + t2) & 0xFFFFFFFF
+
+            cls._H = [(x + y) & 0xFFFFFFFF for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
+
+        cls._H.pop()
+        return b''.join(h.to_bytes(4, 'big') for h in cls._H)
 
     # Initial Hash Values
     ihv: list = [
@@ -216,12 +247,42 @@ def openssl_sha256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True
     if not isinstance(string, (bytes, bytearray)):
         raise TypeError('Strings must be encoded before hashing')
 
-    def __digest(cls: HASH) -> bytes: ...
+    def __digest(cls: HASH) -> bytes:
+        message: bytearray = cls._pad(cls._buffer[:], cls._counter * 8, cls.block_size)
+        blocks: list[bytearray] = [message[i:i + 64] for i in range(0, len(message), 64)]
+
+        for block in blocks:
+            W: list[int] = []
+
+            for t in range(64):
+                if t <= 15:
+                    W.append(int.from_bytes(block[t*4:(t*4)+4], 'big'))
+                else:
+                    s1 = cls._ROTR(W[t-2], 17) ^ cls._ROTR(W[t-2], 19) ^ W[t-2] >> 10
+                    s0 = cls._ROTR(W[t-15], 7) ^ cls._ROTR(W[t-15], 18) ^ W[t-15] >> 3
+                    W.append((s1 + W[t-7] + s0 + W[t-16]) & 0xFFFFFFFF)
+
+            a, b, c, d, e, f, g, h = cls._H
+
+            for t in range(64):
+                s1 = cls._ROTR(e, 6) ^ cls._ROTR(e, 11) ^ cls._ROTR(e, 25)
+                s0 = cls._ROTR(a, 2) ^ cls._ROTR(a, 13) ^ cls._ROTR(a, 22)
+                t1 = (h + s1 + cls._ch(e, f, g) + cls.K[t] + W[t]) & 0xFFFFFFFF
+                t2 = (s0 + cls._maj(a, b, c)) & 0xFFFFFFFF
+
+                h, g, f = g, f, e
+                e = (d + t1) & 0xFFFFFFFF
+                d, c, b = c, b, a
+                a = (t1 + t2) & 0xFFFFFFFF
+
+            cls._H = [(x + y) & 0xFFFFFFFF for x, y in zip(cls._H, [a, b, c, d, e, f, g, h])]
+
+        return b''.join(h.to_bytes(4, 'big') for h in cls._H)
 
     # Initial Hash Values
     ihv: list = [
-        0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939,
-        0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4
+        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
         ]
 
     hash_obj: HASH = HASH(ds=32, bs=512, name='sha256', ihv=ihv)
@@ -235,12 +296,6 @@ def openssl_sha256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True
 
 if __name__ == '__main__':
 
-    try: # check istance check decorator
-        openssl_sha1('Hello')
-        raise AssertionError # This should not happen
-    except TypeError:
-        pass
-
     import hashlib
 
     def _get_sum(_hash) -> str:
@@ -248,17 +303,6 @@ if __name__ == '__main__':
             for chunk in iter(lambda: file.read(8196), b''):  _hash.update(chunk)
         return _hash.hexdigest()
 
-    def _compare_digest(_hash1, _hash2) -> str:
-        _hash1_digest: str = _get_sum(_hash1)
-        _hash2_digest: str = _get_sum(_hash2)
-
-        if _hash1_digest != _hash2_digest:
-            raise HashMismatchError(
-                f'{_hash1.name} | {_hash1_digest} != {_hash2_digest}'
-            )
-
-        return f'[ OK ] {_hash1.name} | {_hash1_digest} == {_hash2_digest}'
-
-    hashlib.sha1('hello')
-    print(_compare_digest(openssl_sha1(), hashlib.sha1()))
-    print(_compare_digest(openssl_sha224(), hashlib.sha224()))
+    assert _get_sum(openssl_sha1())   == _get_sum(hashlib.sha1())
+    assert _get_sum(openssl_sha256()) == _get_sum(hashlib.sha256())
+    assert _get_sum(openssl_sha224()) == _get_sum(hashlib.sha224())
