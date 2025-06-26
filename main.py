@@ -1,5 +1,19 @@
 from __future__ import annotations
 
+
+'''
+A naive Python implementation of the hashlib library.
+
+NOTE: Several algorithms  reuse the same  underlying digest  routine—for example,  
+SHA-224 relies  on the SHA-256  compression  function.  In the code that follows,  
+these shared methods are re-implemented even though they already exist elsewhere.  
+This  deliberate duplication keeps each  algorithm self-contained for educational  
+clarity.  If you'd rather work with a tidier,  de-duplicated codebase,  check out  
+the `better-digest` branch.
+```
+'''
+
+
 from typing    import Self, Protocol, Iterator, overload, runtime_checkable, AnyStr
 from types     import MethodType
 from warnings  import warn
@@ -124,9 +138,10 @@ class HASH(object):
 
 
 '''
-NOTE: The `usedforsecurity` parameter in OpenSSL functions is primarily advisory.
-In most cases, it has no effect. However, for insecure algorithms like MD5 and SHA-1,
-setting `usedforsecurity=True` may raise a warning in security-sensitive environments.
+NOTE: The `usedforsecurity` parameter in OpenSSL functions is primarily advisory.  
+In most cases,  it has no effect.  However,  for insecure algorithms like MD5 and  
+SHA-1,  setting `usedforsecurity=True`  may raise a warning in security-sensitive  
+environments.
 '''
 
 def sha1(string: ReadableBuffer = b'', *, usedforsecurity: bool = True) -> HASH:
@@ -495,6 +510,10 @@ def sha512_256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) ->
     if string: hash_obj.update(string)
 
     return hash_obj
+
+
+def openssl_sha3_224(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
+
 
 
 __all__: list = [var for var in globals().keys() if not var.startswith('_')]
