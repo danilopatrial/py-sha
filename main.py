@@ -14,9 +14,18 @@ the `better-digest` branch.
 '''
 
 
-from typing    import Self, Protocol, Iterator, overload, runtime_checkable, AnyStr
-from types     import MethodType
-from warnings  import warn
+from typing import (
+    Self, 
+    Protocol, 
+    Iterator, 
+    overload, 
+    runtime_checkable, 
+    type_check_only, 
+    AnyStr
+    )
+
+from types import MethodType
+from warnings import warn
 
 import math, decimal
 
@@ -27,6 +36,20 @@ class ReadableBuffer(Protocol):
     def __getitem__(self, index: int) -> int: ...
     def __iter__(self): ...
     def extend(self, __x: bytes) -> None: ...
+
+
+@type_check_only
+class _HashObject(Protocol):
+    @property
+    def digest_size(self) -> int: ...
+    @property
+    def block_size(self) -> int: ...
+    @property
+    def name(self) -> str: ...
+    def copy(self) -> Self: ...
+    def digest(self) -> bytes: ...
+    def hexdigest(self) -> str: ...
+    def update(self, obj: ReadableBuffer, /) -> None: ...
 
 
 class HashMismatchError(BaseException): ...
@@ -512,8 +535,19 @@ def sha512_256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) ->
     return hash_obj
 
 
-def openssl_sha3_224(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
-
+def sha3_224(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
+def sha3_256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
+def sha3_384(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
+def sha3_512(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
+def shake_128(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
+def shake_256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
+def hmac_digest(key: bytes | bytearray, msg: ReadableBuffer, digest: str) -> bytes: ...
+def pbkdf2_hmac(
+    hash_name: str, password: ReadableBuffer, salt: ReadableBuffer, iterations: int, dklen: int | None = None
+) -> bytes: ...
+def scrypt(
+    password: ReadableBuffer, *, salt: ReadableBuffer, n: int, r: int, p: int, maxmem: int = 0, dklen: int = 64
+) -> bytes: ...
 
 
 __all__: list = [var for var in globals().keys() if not var.startswith('_')]
@@ -535,4 +569,3 @@ if __name__ == '__main__':
     assert _get_sum(sha384()) == _get_sum(hashlib.sha384())
     assert _get_sum(sha512_224()) == _get_sum(hashlib.new('sha512-224'))
     assert _get_sum(sha512_256()) == _get_sum(hashlib.new('sha512-256'))
-    
