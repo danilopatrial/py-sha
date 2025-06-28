@@ -13,7 +13,6 @@ the `better-digest` branch.
 ```
 '''
 
-
 from typing import (
     Self, 
     Protocol, 
