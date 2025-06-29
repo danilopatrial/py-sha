@@ -82,6 +82,8 @@ def _cbrt_frac(x: int, mod: int) -> int:
 
 class HASH(object):
 
+    """This class needs to be improved, since it needs to accept both sha2 and sha3 algorithms"""
+
     def __init__(self, ds: int, bs: int, w: int, name: str, ihv: list) -> None:
         self._buffer:  bytearray = bytearray()
         self._counter: int = 0
