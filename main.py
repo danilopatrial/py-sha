@@ -9,6 +9,9 @@ import typing as t
 import copy
 import decimal
 
+if t.TYPE_CHECKING:
+    import _typeshed as _t
+
 from functools import partial, wraps
 
 # Initial Hash Values
@@ -80,14 +83,6 @@ SHA512_256_INITIAL_HASH_VALUES: tuple = (
     0x2B0199FC2C85B8AA,
     0x0EB72DDC81C52CA2,
 )
-
-
-@t.runtime_checkable
-class ReadableBuffer(t.Protocol):
-    def __len__(self) -> int: ...
-    def __getitem__(self, index: int) -> int: ...
-    def __iter__(self): ...
-    def extend(self, __x: bytes) -> None: ...
 
 
 class HashMismatchError(BaseException): ...
@@ -398,7 +393,7 @@ class HASH(object):
     def hexdigest(self) -> str:
         return self.digest().hex()
 
-    def update(self, obj: ReadableBuffer, /) -> None:
+    def update(self, obj: _t.ReadableBuffer, /) -> None:
         self._buffer.extend(obj)
         self._counter += len(obj)
 
@@ -417,9 +412,7 @@ def _shadef(
     def decorator(func: t.Callable[..., HASH]) -> t.Callable[..., HASH]:
 
         @wraps(func)
-        def wrapper(
-            string: ReadableBuffer = b"", *, usedforsecurity: bool = True
-        ) -> HASH:
+        def wrapper(string: bytes = b"", *, usedforsecurity: bool = True) -> HASH:
 
             if not isinstance(string, (bytes, bytearray)):
                 raise TypeError("Strings must be encoded before hashing")
@@ -445,34 +438,42 @@ def _shadef(
 
 
 @_shadef(digest_size=20, block_size=512, word_bit_length=32)
-def sha1(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
+def sha1(string: _t.ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
 
 
 @_shadef(digest_size=28, block_size=512, word_bit_length=32)
-def sha224(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
+def sha224(
+    string: _t.ReadableBuffer = b"", *, usedforsecurity: bool = True
+) -> HASH: ...
 
 
 @_shadef(digest_size=32, block_size=512, word_bit_length=32)
-def sha256(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
+def sha256(
+    string: _t.ReadableBuffer = b"", *, usedforsecurity: bool = True
+) -> HASH: ...
 
 
 @_shadef(digest_size=48, block_size=1024, word_bit_length=64)
-def sha384(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
+def sha384(
+    string: _t.ReadableBuffer = b"", *, usedforsecurity: bool = True
+) -> HASH: ...
 
 
 @_shadef(digest_size=64, block_size=1024, word_bit_length=64)
-def sha512(string: ReadableBuffer = b"", *, usedforsecurity: bool = True) -> HASH: ...
+def sha512(
+    string: _t.ReadableBuffer = b"", *, usedforsecurity: bool = True
+) -> HASH: ...
 
 
 @_shadef(digest_size=28, block_size=1024, word_bit_length=64)
 def sha512_224(
-    string: ReadableBuffer = b"", *, usedforsecurity: bool = True
+    string: _t.ReadableBuffer = b"", *, usedforsecurity: bool = True
 ) -> HASH: ...
 
 
 @_shadef(digest_size=32, block_size=1024, word_bit_length=64)
 def sha512_256(
-    string: ReadableBuffer = b"", *, usedforsecurity: bool = True
+    string: _t.ReadableBuffer = b"", *, usedforsecurity: bool = True
 ) -> HASH: ...
 
 
