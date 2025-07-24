@@ -116,7 +116,7 @@ def _nprimes(n: int) -> list[int]:
     return primes
 
 
-def _cbrt_fractional_part(number: int) -> int:
+def _cbrt_fractional_part(number: int) -> decimal.Decimal:
     """Returns the fractional part of math.cbrt(x)"""
     cbrt = decimal.Decimal(number) ** (decimal.Decimal(1) / decimal.Decimal(3))
     return cbrt - math.floor(cbrt)
