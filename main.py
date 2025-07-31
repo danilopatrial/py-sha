@@ -168,6 +168,17 @@ class HASH(object):
         for key, value in kwds.items():
             object.__setattr__(self, key, value)
 
+    def __repr__(self) -> str:
+        return f"<HASH name={self.name!r} digest_size={self.digest_size} block_size={self.block_size}>"
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, HASH):
+            return self.digest() == other.digest()
+        return NotImplemented
+
+    def __call__(self, data: bytes) -> bytes:
+        return self.copy().update(data).digest()
+
     # Operations on words, see definition in NIST FIPS 180-4, Section 3.2
     def _ROTR(self, x: int, n: int) -> int:
         return ((x >> n) | (x << (self.word_bit_length - n))) & self.mod
@@ -393,9 +404,10 @@ class HASH(object):
     def hexdigest(self) -> str:
         return self.digest().hex()
 
-    def update(self, obj: _t.ReadableBuffer, /) -> None:
+    def update(self, obj: _t.ReadableBuffer, /) -> HASH:
         self._buffer.extend(obj)
         self._counter += len(obj)
+        return self  # update chaining
 
 
 """
